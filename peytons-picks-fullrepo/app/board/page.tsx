@@ -1,13 +1,19 @@
-async function getGames() {
-  const url = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/api/games/list` : 'http://localhost:3000/api/games/list';
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to load games');
-  return res.json();
-}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+import { getClient } from '../../lib/db';
+
 export default async function Board() {
-  const data = await getGames();
-  const games = data.games || [];
-  const top10 = [...games].sort((a:any,b:any)=>Math.abs(b.spread)-Math.abs(a.spread)).slice(0,10);
+  const client = await getClient();
+  const res = await client.query(`
+    SELECT week, game_id, to_char(game_date, 'YYYY-MM-DD') as game_date, kickoff_local,
+           home_team, away_team, favorite, underdog, spread, notes
+    FROM games
+    ORDER BY game_date, kickoff_local, game_id
+  `);
+  await client.end();
+  const games = res.rows || [];
+  const top10 = [...games].sort((a:any,b:any)=>Math.abs(Number(b.spread))-Math.abs(Number(a.spread))).slice(0,10);
+
   return (
     <main>
       <h2>Board</h2>
