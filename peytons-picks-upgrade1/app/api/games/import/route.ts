@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getClient } from '@/lib/db';
+import { getClient } from '../../../../lib/db';  // relative import
+
 export async function POST(req: NextRequest) {
   try {
     const { rows } = await req.json();

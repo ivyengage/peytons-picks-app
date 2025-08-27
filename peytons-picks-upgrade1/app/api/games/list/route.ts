@@ -1,4 +1,5 @@
-import { getClient } from '@/lib/db';
+import { getClient } from '../../../../lib/db';  // relative import
+
 export async function GET() {
   try {
     const client = await getClient();
