@@ -1,5 +1,7 @@
+export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import { getClient } from '../../../../lib/db';
+
 export async function POST(req: NextRequest) {
   try {
     const { rows } = await req.json();
@@ -31,9 +33,8 @@ export async function POST(req: NextRequest) {
       await client.query(q, vals);
       inserted++;
     }
-    await client.end();
     return new Response(JSON.stringify({ ok: true, inserted }), { headers: { 'content-type': 'application/json' } });
   } catch (e:any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'Import failed: ' + e.message }), { status: 500, headers: { 'content-type': 'application/json' } });
   }
 }
