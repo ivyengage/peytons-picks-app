@@ -24,17 +24,21 @@ type OddsEvent = {
   }>
 };
 
-// ---------- Top-level helpers ----------
-const norm = (s: string) =>
-  s.toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .replace(/stateu?$/, 'state')
-    .replace(/university$/, '');
+// ---------- Top-level helpers (replace old norm/sameMatch) ----------
+const stop = new Set(['university','state','college','of','the','at','and']);
 
-const sameMatch = (a1: string, a2: string, b1: string, b2: string) => {
-  const A1 = norm(a1), A2 = norm(a2), B1 = norm(b1), B2 = norm(b2);
-  return (A1 === B1 && A2 === B2) || (A1 === B2 && A2 === B1);
-};
+function coreName(s: string) {
+  const words = s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
+  const keep = words.filter(w => !stop.has(w));
+  return keep.slice(0, 3).join('');
+}
+
+function sameMatch(a1: string, a2: string, b1: string, b2: string) {
+  const A1 = coreName(a1), A2 = coreName(a2), B1 = coreName(b1), B2 = coreName(b2);
+  const eq = (x: string, y: string) => x && y && (x.includes(y) || y.includes(x));
+  return (eq(A1, B1) && eq(A2, B2)) || (eq(A1, B2) && eq(A2, B1));
+}
+// -------------------------------------------------------------------
 
 const median = (nums: number[]): number | null => {
   if (!nums.length) return null;
