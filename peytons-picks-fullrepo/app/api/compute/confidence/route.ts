@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       upserts++;
     }
 
-    await client.end();
+    client.release();
     return new Response(JSON.stringify({ ok: true, upserts, games: rows.length }), { headers: { 'content-type': 'application/json' } });
   } catch (e:any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
