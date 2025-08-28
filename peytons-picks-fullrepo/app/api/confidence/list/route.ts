@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       WHERE g.week=$1
       ORDER BY c.score DESC NULLS LAST, g.game_date, g.kickoff_local
     `, [week]);
-    await client.end();
+    client.release();
     return new Response(JSON.stringify({ picks: res.rows }), { headers: { 'content-type': 'application/json' } });
   } catch (e:any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
