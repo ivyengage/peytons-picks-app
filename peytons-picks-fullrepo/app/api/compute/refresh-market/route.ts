@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
       for (const bk of ev.bookmakers || []) {
         const mSp = (bk.markets || []).find(m => m.key === 'spreads');
         if (mSp) {
-          const home = mSp.outcomes.find(o => norm(o.name) === norm(ev.home_team));
-          const away = mSp.outcomes.find(o => norm(o.name) === norm(ev.away_team));
+          const home = mSp.outcomes.find(o => coreName(o.name) === coreName(ev.home_team));
+          const away = mSp.outcomes.find(o => coreName(o.name) === coreName(ev.away_team));
           if (home?.point != null && away?.point != null) {
             if (home.point < 0) spreads.push(Number(home.point));
             else if (away.point < 0) spreads.push(Number(away.point));
