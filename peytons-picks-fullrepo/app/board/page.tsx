@@ -85,19 +85,21 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
     return (
       <main style={{ padding: 24, fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial' }}>
         <h1 style={{ margin: 0, marginBottom: 8 }}>Peyton’s Picks — Board (Week {week})</h1>
-
-        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-          <a href={`/api/compute/refresh-market?week=${week}`} style={{ padding:'8px 12px', background:'#0B2242', color:'#fff', borderRadius:8, textDecoration:'none' }}>
-            1) Refresh Market
-          </a>
-          <a href={`/api/compute/confidence?week=${week}`} style={{ padding:'8px 12px', background:'#CC1236', color:'#fff', borderRadius:8, textDecoration:'none' }}>
-            2) Compute Confidence
-          </a>
-          <a href={`/api/games/status?week=${week}`} style={{ padding:'8px 12px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
-            DB Status
-          </a>
-        </div>
-
+        <div style={{ margin: '12px 0', display: 'flex', gap: '12px' }}>
+  <a
+    href={`/api/compute/refresh-all?week=${week}&redirect=1`}
+    style={{
+      padding: '8px 14px',
+      background: '#0B2242',
+      color: '#fff',
+      borderRadius: '6px',
+      textDecoration: 'none',
+      fontWeight: 600
+    }}
+  >
+    🔁 Refresh All
+  </a>
+</div>
         <section style={{ border:'1px solid #e5e7eb', borderRadius:10, padding:16, background:'#fff', marginBottom:20 }}>
           <h2 style={{ marginTop:0 }}>Top 10</h2>
           {top10.length === 0 ? (
