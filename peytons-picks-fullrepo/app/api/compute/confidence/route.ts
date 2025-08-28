@@ -1,7 +1,10 @@
 export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import { getClient } from '../../../../lib/db';
-
+export async function GET(req: NextRequest) {
+  // @ts-ignore
+  return POST(req);
+}
 type Game = {
   game_id: string;
   favorite: string;
