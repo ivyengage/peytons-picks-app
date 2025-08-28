@@ -1,0 +1,24 @@
+export const runtime = 'nodejs';
+import { NextRequest } from 'next/server';
+import { getClient } from '../../../../lib/db';
+
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const week = Number(url.searchParams.get('week') || '1');
+  const client = await getClient();
+  try {
+    const r = await client.query(`
+      SELECT COUNT(*)::int AS rows,
+             MIN(game_date)::text AS first_date,
+             MAX(game_date)::text AS last_date
+      FROM games WHERE week = $1
+    `, [week]);
+    return new Response(JSON.stringify({ ok: true, week, ...r.rows[0] }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500 });
+  } finally {
+    client.release();
+  }
+}
