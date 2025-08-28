@@ -12,11 +12,9 @@ type Row = {
   favorite: string | null;
   underdog: string | null;
   spread: number | null;
-  // market snapshot (can be null if refresh-market not run yet)
-  consensus_spread: number | null;
-  consensus_total: number | null;
-  // confidence (can be null if not computed yet)
-  score: number | null;
+  consensus_spread: number | null; // from market_now
+  consensus_total: number | null;  // from market_now
+  score: number | null;            // from confidence
   pick_side: 'favorite' | 'underdog' | null;
   pick_team: string | null;
   cover_prob: number | null;
@@ -73,37 +71,36 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
       ORDER BY (c.score IS NULL) ASC, c.score DESC, g.game_date, g.kickoff_local, g.game_id
     `, [week]);
 
-    const rows = (res.rows ?? []).map(r => ({
-      ...r,
-      reasons: safeReasons(r.reasons)
-    }));
-
-    const top10 = rows
-      .filter(r => r.score !== null && r.score !== undefined)
-      .slice(0, 10);
+    const rows = (res.rows ?? []).map(r => ({ ...r, reasons: safeReasons(r.reasons) }));
+    const top10 = rows.filter(r => r.score != null).slice(0, 10);
 
     return (
       <main style={{ padding: 24, fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial' }}>
         <h1 style={{ margin: 0, marginBottom: 8 }}>Peyton’s Picks — Board (Week {week})</h1>
-        <div style={{ margin: '12px 0', display: 'flex', gap: '12px' }}>
-  <a
-    href={`/api/compute/refresh-all?week=${week}&redirect=1`}
-    style={{
-      padding: '8px 14px',
-      background: '#0B2242',
-      color: '#fff',
-      borderRadius: '6px',
-      textDecoration: 'none',
-      fontWeight: 600
-    }}
-  >
-    🔁 Refresh All
-  </a>
-</div>
+
+        {/* Toolbar */}
+        <div style={{ margin: '12px 0', display: 'flex', gap: 12 }}>
+          <a
+            href={`/api/compute/refresh-all?week=${week}&redirect=1`}
+            style={{ padding: '8px 12px', background: '#0B2242', color: '#fff',
+                     borderRadius: 8, textDecoration: 'none', fontWeight: 600 }}
+          >
+            🔁 Refresh All
+          </a>
+          <a
+            href={`/api/games/status?week=${week}`}
+            style={{ padding: '8px 12px', border: '1px solid #ddd',
+                     borderRadius: 8, textDecoration: 'none' }}
+          >
+            DB Status
+          </a>
+        </div>
+
+        {/* Top 10 */}
         <section style={{ border:'1px solid #e5e7eb', borderRadius:10, padding:16, background:'#fff', marginBottom:20 }}>
           <h2 style={{ marginTop:0 }}>Top 10</h2>
           {top10.length === 0 ? (
-            <div>No confidence scores yet. Click the two buttons above.</div>
+            <div>No confidence scores yet. Click <strong>Refresh All</strong> above.</div>
           ) : (
             <ol style={{ paddingLeft: 18 }}>
               {top10.map(g => (
@@ -111,15 +108,16 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
                   <strong>
                     {g.pick_team ?? (g.pick_side === 'underdog' ? (g.underdog ?? 'Underdog') : (g.favorite ?? 'Favorite'))}
                   </strong>
-                  {' — score '} {fmtNum(g.score)}
-                  {', cover '} {g.cover_prob != null ? `${Math.round(g.cover_prob * 100)}%` : '—'}
-                  {' — '} {g.away_team} @ {g.home_team} ({g.game_date ?? ''} {g.kickoff_local ?? ''})
+                  {' — score '}{fmtNum(g.score)}
+                  {', cover '}{g.cover_prob != null ? `${Math.round(g.cover_prob * 100)}%` : '—'}
+                  {' — '}{g.away_team} @ {g.home_team} ({g.game_date ?? ''} {g.kickoff_local ?? ''})
                 </li>
               ))}
             </ol>
           )}
         </section>
 
+        {/* Full table */}
         <div style={{ overflow:'auto', border:'1px solid #e5e7eb', borderRadius:10 }}>
           <table style={{ width:'100%', borderCollapse:'collapse', background:'#fff', fontSize:14 }}>
             <thead>
@@ -164,7 +162,6 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
       </main>
     );
   } catch (e: any) {
-    // show the actual error instead of a generic digest
     return (
       <pre style={{ padding:16, whiteSpace:'pre-wrap' }}>
         Board error: {e?.message || String(e)}
