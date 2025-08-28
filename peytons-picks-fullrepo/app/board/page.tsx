@@ -5,20 +5,22 @@ import { getClient } from '../../lib/db';
 type Row = {
   game_id: string;
   week: number;
-  game_date: string | null;        // formatted in SQL
+  game_date: string | null;        // pre-formatted in SQL
   kickoff_local: string | null;
   home_team: string;
   away_team: string;
   favorite: string | null;
   underdog: string | null;
   spread: number | null;
+  // market snapshot (can be null if refresh-market not run yet)
   consensus_spread: number | null;
   consensus_total: number | null;
+  // confidence (can be null if not computed yet)
   score: number | null;
   pick_side: 'favorite' | 'underdog' | null;
-  pick_team?: string | null;
+  pick_team: string | null;
   cover_prob: number | null;
-  reasons: unknown;                // JSON or text
+  reasons: unknown;
 };
 
 function fmtNum(n: number | null | undefined, d = 1) {
@@ -43,13 +45,14 @@ function safeReasons(r: unknown): string[] {
 
 export default async function BoardPage({ searchParams }: { searchParams?: Record<string, string> }) {
   const week = Number(searchParams?.week ?? '1');
+
   const client = await getClient();
   try {
     const res = await client.query<Row>(`
       SELECT
         g.game_id,
         g.week,
-        to_char(g.game_date, 'YYYY-MM-DD') AS game_date,
+        TO_CHAR(g.game_date, 'YYYY-MM-DD') AS game_date,
         g.kickoff_local,
         g.home_team,
         g.away_team,
@@ -70,8 +73,6 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
       ORDER BY (c.score IS NULL) ASC, c.score DESC, g.game_date, g.kickoff_local, g.game_id
     `, [week]);
 
-    client.release();
-
     const rows = (res.rows ?? []).map(r => ({
       ...r,
       reasons: safeReasons(r.reasons)
@@ -84,68 +85,74 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
     return (
       <main style={{ padding: 24, fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial' }}>
         <h1 style={{ margin: 0, marginBottom: 8 }}>Peyton’s Picks — Board (Week {week})</h1>
-        <div style={{ marginBottom: 12 }}>
-          <a href={`/api/compute/refresh-market?week=${week}`} style={{ marginRight: 8, padding: '8px 12px', background: '#0B2242', color: '#fff', borderRadius: 8, textDecoration: 'none' }}>1) Refresh Market</a>
-          <a href={`/api/compute/confidence?week=${week}`} style={{ marginRight: 8, padding: '8px 12px', background: '#CC1236', color: '#fff', borderRadius: 8, textDecoration: 'none' }}>2) Compute Confidence</a>
-          <a href={`/api/confidence/list?week=${week}`} style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8, textDecoration: 'none' }}>View JSON</a>
+
+        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+          <a href={`/api/compute/refresh-market?week=${week}`} style={{ padding:'8px 12px', background:'#0B2242', color:'#fff', borderRadius:8, textDecoration:'none' }}>
+            1) Refresh Market
+          </a>
+          <a href={`/api/compute/confidence?week=${week}`} style={{ padding:'8px 12px', background:'#CC1236', color:'#fff', borderRadius:8, textDecoration:'none' }}>
+            2) Compute Confidence
+          </a>
+          <a href={`/api/games/status?week=${week}`} style={{ padding:'8px 12px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
+            DB Status
+          </a>
         </div>
 
-        <section style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 16, background: '#fff', marginBottom: 20 }}>
-          <h2 style={{ marginTop: 0 }}>Top 10</h2>
+        <section style={{ border:'1px solid #e5e7eb', borderRadius:10, padding:16, background:'#fff', marginBottom:20 }}>
+          <h2 style={{ marginTop:0 }}>Top 10</h2>
           {top10.length === 0 ? (
-            <div>No confidence scores yet. Run the two steps above.</div>
+            <div>No confidence scores yet. Click the two buttons above.</div>
           ) : (
             <ol style={{ paddingLeft: 18 }}>
               {top10.map(g => (
                 <li key={g.game_id} style={{ marginBottom: 8 }}>
-                  <strong>{g.pick_team ?? (g.pick_side === 'underdog' ? (g.underdog ?? 'Underdog') : (g.favorite ?? 'Favorite'))}</strong>
-                  {' — score '}
-                  {fmtNum(g.score)}
-                  {', cover '}
-                  {g.cover_prob != null ? `${Math.round(g.cover_prob * 100)}%` : '—'}
-                  {' — '}
-                  {g.away_team} @ {g.home_team} ({g.game_date ?? ''} {g.kickoff_local ?? ''})
+                  <strong>
+                    {g.pick_team ?? (g.pick_side === 'underdog' ? (g.underdog ?? 'Underdog') : (g.favorite ?? 'Favorite'))}
+                  </strong>
+                  {' — score '} {fmtNum(g.score)}
+                  {', cover '} {g.cover_prob != null ? `${Math.round(g.cover_prob * 100)}%` : '—'}
+                  {' — '} {g.away_team} @ {g.home_team} ({g.game_date ?? ''} {g.kickoff_local ?? ''})
                 </li>
               ))}
             </ol>
           )}
         </section>
 
-        <div style={{ overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: 10 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', fontSize: 14 }}>
+        <div style={{ overflow:'auto', border:'1px solid #e5e7eb', borderRadius:10 }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', background:'#fff', fontSize:14 }}>
             <thead>
               <tr>
-                {['week','game_id','date','kickoff','home','away','favorite','underdog','Tue spread','Market now (spr/total)','Pick','Score','Cover %','Reasons'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>{h}</th>
+                {['week','game_id','date','kickoff','home','away','favorite','underdog','Tue spread','Market spr/ttl','Pick','Score','Cover %','Reasons'].map(h => (
+                  <th key={h} style={{ textAlign:'left', padding:8, borderBottom:'1px solid #eee' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map(g => (
                 <tr key={g.game_id}>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.week}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.game_id}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.game_date ?? '—'}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.kickoff_local ?? '—'}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.home_team}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.away_team}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6', fontWeight: 600 }}>{g.favorite ?? '—'}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{g.underdog ?? '—'}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{fmtNum(g.spread)}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.week}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.game_id}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.game_date ?? '—'}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.kickoff_local ?? '—'}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.home_team}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.away_team}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6', fontWeight:600 }}>{g.favorite ?? '—'}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{g.underdog ?? '—'}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{fmtNum(g.spread)}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>
                     {(g.consensus_spread != null || g.consensus_total != null)
                       ? `${fmtNum(g.consensus_spread)} / ${fmtNum(g.consensus_total)}`
                       : '—'}
                   </td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>
                     {g.pick_side ? (g.pick_side === 'underdog' ? (g.underdog ?? 'Underdog') : (g.favorite ?? 'Favorite')) : '—'}
                   </td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{fmtNum(g.score)}</td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>{fmtNum(g.score)}</td>
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6' }}>
                     {g.cover_prob != null ? `${Math.round(g.cover_prob * 100)}%` : '—'}
                   </td>
-                  <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6', maxWidth: 420 }}>
-                    {(safeReasons(g.reasons) as string[]).slice(0, 3).join(' · ')}
+                  <td style={{ padding:8, borderBottom:'1px solid #f3f4f6', maxWidth:420 }}>
+                    {(g.reasons as string[]).slice(0, 3).join(' · ')}
                   </td>
                 </tr>
               ))}
@@ -155,11 +162,13 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
       </main>
     );
   } catch (e: any) {
-    client.release();
+    // show the actual error instead of a generic digest
     return (
-      <pre style={{ padding: 16, whiteSpace: 'pre-wrap' }}>
+      <pre style={{ padding:16, whiteSpace:'pre-wrap' }}>
         Board error: {e?.message || String(e)}
       </pre>
     );
+  } finally {
+    client.release();
   }
 }
