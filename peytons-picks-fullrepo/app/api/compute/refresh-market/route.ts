@@ -1,7 +1,12 @@
 export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import { getClient } from '../../../../lib/db';
-
+// Allow browser GET to call the existing POST handler
+export async function GET(req: NextRequest) {
+  // delegate to the POST endpoint so both methods work the same
+  // @ts-ignore
+  return POST(req);
+}
 type OddsEvent = {
   id: string;
   sport_key: string;
