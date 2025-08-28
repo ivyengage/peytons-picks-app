@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       updated++;
     }
 
-    await client.release();
+    client.release();
     return new Response(JSON.stringify({ ok: true, updated, events_checked: events.length }), { headers: { 'content-type': 'application/json' } });
   } catch (e:any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
