@@ -31,6 +31,13 @@ function sameMatch(a1: string, a2: string, b1: string, b2: string) {
   return (A1 === B1 && A2 === B2) || (A1 === B2 && A2 === B1);
 }
 
+function median(nums: number[]): number | null {
+  if (!nums.length) return null;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -73,13 +80,6 @@ export async function POST(req: NextRequest) {
           const over = mTot.outcomes.find(o => o.name.toLowerCase().includes('over'));
           if (over?.point != null) totals.push(Number(over.point));
         }
-      }
-
-      function median(nums: number[]) {
-        if (!nums.length) return null;
-        const s = [...nums].sort((a,b)=>a-b);
-        const mid = Math.floor(s.length/2);
-        return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
       }
 
       const consensus_spread = median(spreads);
