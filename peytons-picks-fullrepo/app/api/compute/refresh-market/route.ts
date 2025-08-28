@@ -24,14 +24,65 @@ type OddsEvent = {
   }>
 };
 
-// ---------- Top-level helpers (replace old norm/sameMatch) ----------
+// ---------- Top-level helpers (improved matching) ----------
 const stop = new Set(['university','state','college','of','the','at','and']);
 
-function coreName(s: string) {
-  const words = s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
-  const keep = words.filter(w => !stop.has(w));
-  return keep.slice(0, 3).join('');
+// common abbreviations → canonical "core" (no spaces/punct)
+const ALIAS: Record<string,string> = {
+  // SEC / P5
+  lsu: 'louisianastate',
+  uga: 'georgia',
+  bama: 'alabama',
+  usc: 'southerncalifornia',
+  ucla: 'californiolosangeles',
+  tcu: 'texaschristian',
+  olemiss: 'mississippi',
+  byu: 'brighamyoung',
+  // AAC/CUSA/MWC etc.
+  usf: 'southflorida',
+  ucf: 'centralflorida',
+  fau: 'floridaatlantic',
+  fiu: 'floridainternational',
+  smu: 'southernmethodist',
+  utsa: 'texassanantonio',
+  utep: 'texaselpaso',
+  uab: 'alabamabirmingham',
+  unlv: 'nevadalasvegas',
+  umass: 'massachusetts',
+  uconn: 'connecticut',
+  // ACC/B1G/B12 shorthands seen in feeds
+  unc: 'northcarolina',
+  ncsu: 'northcarolinastate',
+  ncstate: 'northcarolinastate',
+  wvu: 'westvirginia',
+  // “Miami (OH)”
+  'miamioh': 'miamiohio',
+};
+
+function coreName(raw: string) {
+  // remove parentheses e.g. "Miami (OH)" → "Miami OH"
+  const deparen = raw.replace(/\((.*?)\)/g, ' $1 ');
+  const words = deparen.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
+
+  // collapse to concatenated core, dropping filler words
+  let core = words.filter(w => !stop.has(w)).join('');
+
+  // apply alias if known (exact core or common shorthand)
+  // try exact, then last token (often the shorthand like 'lsu','usf')
+  const last = words.at(-1) || '';
+  if (ALIAS[core]) core = ALIAS[core];
+  else if (ALIAS[last]) core = ALIAS[last];
+
+  return core;
 }
+
+function sameMatch(a1: string, a2: string, b1: string, b2: string) {
+  const A1 = coreName(a1), A2 = coreName(a2), B1 = coreName(b1), B2 = coreName(b2);
+  const eq = (x: string, y: string) => x && y && (x.includes(y) || y.includes(x));
+  // match regardless of ordering
+  return (eq(A1, B1) && eq(A2, B2)) || (eq(A1, B2) && eq(A2, B1));
+}
+// -----------------------------------------------------------
 
 function sameMatch(a1: string, a2: string, b1: string, b2: string) {
   const A1 = coreName(a1), A2 = coreName(a2), B1 = coreName(b1), B2 = coreName(b2);
