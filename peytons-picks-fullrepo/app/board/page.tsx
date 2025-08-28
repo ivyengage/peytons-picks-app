@@ -15,7 +15,7 @@ export default async function Board() {
     ORDER BY (c.score IS NULL), c.score DESC, g.game_date, g.kickoff_local
   `);
   const rows = picksRes.rows;
-  await client.end();
+  client.release();
 
   const haveConfidence = rows.some((r:any) => r.score !== null);
   const top10 = haveConfidence
