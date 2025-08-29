@@ -95,7 +95,15 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
   >
     2) Compute Confidence
   </a>
-
+         
+<a
+  href={`/api/compute/fetch-scores?year=${new Date().getFullYear()}&week=${week}&seasonType=regular&grade=1&redirect=1`}
+  style={{ padding: '8px 12px', background: '#0B2242', color: '#fff',
+           borderRadius: 8, textDecoration: 'none', fontWeight: 600 }}
+>
+  🏁 Sync Scores & Grade
+</a>
+         
   <a
     href={`/api/games/status?week=${week}`}
     style={{ padding: '8px 12px', border: '1px solid #ddd',
