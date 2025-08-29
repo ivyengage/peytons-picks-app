@@ -80,21 +80,21 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
 
         {/* Toolbar */}
         <div style={{ margin: '12px 0', display: 'flex', gap: 12 }}>
-          <a
-            href={`/api/compute/refresh-all?week=${week}&redirect=1`}
-            style={{ padding: '8px 12px', background: '#0B2242', color: '#fff',
-                     borderRadius: 8, textDecoration: 'none', fontWeight: 600 }}
-          >
-            🔁 Refresh All
-          </a>
-          <a
-            href={`/api/games/status?week=${week}`}
-            style={{ padding: '8px 12px', border: '1px solid #ddd',
-                     borderRadius: 8, textDecoration: 'none' }}
-          >
-            DB Status
-          </a>
-        </div>
+  <a
+    href={`/api/compute/refresh-all?week=${week}&redirect=1`}
+    style={{ padding: '8px 12px', background: '#0B2242', color: '#fff',
+             borderRadius: 8, textDecoration: 'none', fontWeight: 600 }}
+  >
+    🔁 Refresh All
+  </a>
+  <a
+    href={`/api/games/status?week=${week}`}
+    style={{ padding: '8px 12px', border: '1px solid #ddd',
+             borderRadius: 8, textDecoration: 'none' }}
+  >
+    DB Status
+  </a>
+</div>
 
         {/* Top 10 */}
         <section style={{ border:'1px solid #e5e7eb', borderRadius:10, padding:16, background:'#fff', marginBottom:20 }}>
