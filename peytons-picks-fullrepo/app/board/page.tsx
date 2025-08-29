@@ -79,14 +79,23 @@ export default async function BoardPage({ searchParams }: { searchParams?: Recor
         <h1 style={{ margin: 0, marginBottom: 8 }}>Peyton’s Picks — Board (Week {week})</h1>
 
         {/* Toolbar */}
-        <div style={{ margin: '12px 0', display: 'flex', gap: 12 }}>
+       <div style={{ margin: '12px 0', display: 'flex', gap: 12 }}>
   <a
-    href={`/api/compute/refresh-all?week=${week}&redirect=1`}
+    href={`/api/compute/refresh-market?week=${week}&redirect=1`}
     style={{ padding: '8px 12px', background: '#0B2242', color: '#fff',
              borderRadius: 8, textDecoration: 'none', fontWeight: 600 }}
   >
-    🔁 Refresh All
+    1) Refresh Market
   </a>
+
+  <a
+    href={`/api/compute/confidence?week=${week}&redirect=1`}
+    style={{ padding: '8px 12px', background: '#CC1122', color: '#fff',
+             borderRadius: 8, textDecoration: 'none', fontWeight: 600 }}
+  >
+    2) Compute Confidence
+  </a>
+
   <a
     href={`/api/games/status?week=${week}`}
     style={{ padding: '8px 12px', border: '1px solid #ddd',
