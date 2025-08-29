@@ -23,8 +23,10 @@ function coreName(raw: string) {
   const stop = new Set(['university', 'state', 'the']);
   let core = words.filter(w => !stop.has(w)).join('');
   const ALIAS: Record<string,string> = {
-    // add helpful aliases; examples:
-    // 'miamioh': 'miamioh', 'miamifl': 'miamifl',
+    // add aliases if needed, examples:
+    // 'utsa': 'utsaroadrunners',
+    // 'texassanantonio': 'utsaroadrunners',
+    // 'miamioh': 'miamioh', 'miamifl': 'miamifl'
   };
   const last = words.at(-1) || '';
   if (ALIAS[core]) core = ALIAS[core];
@@ -38,19 +40,17 @@ async function handle(req: NextRequest) {
   const week = Number(url.searchParams.get('week') || '1');
   const seasonType = (url.searchParams.get('seasonType') || 'regular') as 'regular'|'postseason';
   const doGrade = ['1','true','yes'].includes((url.searchParams.get('grade') || '').toLowerCase());
+  const redirect = ['1','true'].includes((url.searchParams.get('redirect') || '').toLowerCase());
 
   const apiKey = process.env.CFBD_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ ok:false, error:'CFBD_API_KEY missing' }, { status:500 });
   }
 
-  // CFBD: fetch games (scores) for week/year
+  // CFBD request
   const cfbdUrl = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=${seasonType}&division=fbs`;
   const resp = await fetch(cfbdUrl, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: 'application/json',
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
     cache: 'no-store',
   });
   if (!resp.ok) {
@@ -59,8 +59,7 @@ async function handle(req: NextRequest) {
   }
   const games: CfbdGame[] = await resp.json();
 
-  // Index CFBD results by normalized pair
-  // Key = sorted(core(home), core(away)) to match regardless of ordering convention
+  // Index by normalized team pair (order-agnostic)
   const cfbdMap = new Map<string, CfbdGame>();
   for (const g of games) {
     const h = coreName(g.home_team);
@@ -74,14 +73,10 @@ async function handle(req: NextRequest) {
   let considered = 0;
 
   try {
-    // Pull our games for this week
-    const dbRes = await client.query<{
-      game_id: string;
-      home_team: string;
-      away_team: string;
-    }>(`SELECT game_id, home_team, away_team
-        FROM games
-        WHERE week = $1`, [week]);
+    const dbRes = await client.query<{ game_id: string; home_team: string; away_team: string }>(
+      `SELECT game_id, home_team, away_team FROM games WHERE week = $1`,
+      [week]
+    );
 
     for (const row of dbRes.rows) {
       considered++;
@@ -90,9 +85,8 @@ async function handle(req: NextRequest) {
       const key = [h, a].sort().join('|');
       const m = cfbdMap.get(key);
       if (!m) continue;
-      if (m.home_points == null || m.away_points == null) continue; // not final yet
+      if (m.home_points == null || m.away_points == null) continue; // not final
 
-      // Update scores in our DB
       const upd = await client.query(
         `UPDATE games
          SET home_score = $1,
@@ -104,16 +98,14 @@ async function handle(req: NextRequest) {
       );
       if (upd.rowCount && upd.rowCount > 0) updated++;
     }
-
   } catch (e:any) {
     return NextResponse.json({ ok:false, error:e.message }, { status:500 });
   } finally {
-    // neon client helper provides .release in pooled mode
     (client as any).release?.();
   }
 
-  // Optionally chain grading (postmortem)
-  let graded: null | number = null;
+  // Optionally grade (postmortem)
+  let graded: number | null = null;
   if (doGrade) {
     const gradeUrl = `${url.origin}/api/compute/postmortem?week=${week}`;
     const gRes = await fetch(gradeUrl, { method:'POST', cache:'no-store' });
@@ -122,15 +114,18 @@ async function handle(req: NextRequest) {
     graded = gj?.graded ?? null;
   }
 
+  // Optional redirect back to Board
+  if (redirect) {
+    return NextResponse.redirect(`${url.origin}/board?week=${week}`);
+  }
+
   return NextResponse.json({
     ok: true,
-    year,
-    week,
-    seasonType,
+    year, week, seasonType,
     cfbd_count: games.length,
     considered,
     updated,
-    graded,
+    graded
   });
 }
 
