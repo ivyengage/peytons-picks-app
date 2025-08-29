@@ -1,4 +1,3 @@
-// app/api/compute/fetch-scores/route.ts
 export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient } from '../../../../lib/db';
@@ -8,7 +7,7 @@ type CfbdGame = {
   season: number;
   week: number;
   season_type: 'regular' | 'postseason';
-  start_date: string; // ISO
+  start_date: string;
   home_team: string;
   away_team: string;
   home_points: number | null;
@@ -22,12 +21,7 @@ function coreName(raw: string) {
   const words = deparen.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
   const stop = new Set(['university', 'state', 'the']);
   let core = words.filter(w => !stop.has(w)).join('');
-  const ALIAS: Record<string,string> = {
-    // add aliases if needed, examples:
-    // 'utsa': 'utsaroadrunners',
-    // 'texassanantonio': 'utsaroadrunners',
-    // 'miamioh': 'miamioh', 'miamifl': 'miamifl'
-  };
+  const ALIAS: Record<string,string> = {};
   const last = words.at(-1) || '';
   if (ALIAS[core]) core = ALIAS[core];
   else if (ALIAS[last]) core = ALIAS[last];
@@ -43,11 +37,8 @@ async function handle(req: NextRequest) {
   const redirect = ['1','true'].includes((url.searchParams.get('redirect') || '').toLowerCase());
 
   const apiKey = process.env.CFBD_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ ok:false, error:'CFBD_API_KEY missing' }, { status:500 });
-  }
+  if (!apiKey) return NextResponse.json({ ok:false, error:'CFBD_API_KEY missing' }, { status:500 });
 
-  // CFBD request
   const cfbdUrl = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=${seasonType}&division=fbs`;
   const resp = await fetch(cfbdUrl, {
     headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
@@ -59,7 +50,6 @@ async function handle(req: NextRequest) {
   }
   const games: CfbdGame[] = await resp.json();
 
-  // Index by normalized team pair (order-agnostic)
   const cfbdMap = new Map<string, CfbdGame>();
   for (const g of games) {
     const h = coreName(g.home_team);
@@ -69,15 +59,12 @@ async function handle(req: NextRequest) {
   }
 
   const client = await getClient();
-  let updated = 0;
-  let considered = 0;
-
+  let updated = 0, considered = 0;
   try {
     const dbRes = await client.query<{ game_id: string; home_team: string; away_team: string }>(
       `SELECT game_id, home_team, away_team FROM games WHERE week = $1`,
       [week]
     );
-
     for (const row of dbRes.rows) {
       considered++;
       const h = coreName(row.home_team);
@@ -85,7 +72,7 @@ async function handle(req: NextRequest) {
       const key = [h, a].sort().join('|');
       const m = cfbdMap.get(key);
       if (!m) continue;
-      if (m.home_points == null || m.away_points == null) continue; // not final
+      if (m.home_points == null || m.away_points == null) continue;
 
       const upd = await client.query(
         `UPDATE games
@@ -104,7 +91,6 @@ async function handle(req: NextRequest) {
     (client as any).release?.();
   }
 
-  // Optionally grade (postmortem)
   let graded: number | null = null;
   if (doGrade) {
     const gradeUrl = `${url.origin}/api/compute/postmortem?week=${week}`;
@@ -114,19 +100,9 @@ async function handle(req: NextRequest) {
     graded = gj?.graded ?? null;
   }
 
-  // Optional redirect back to Board
-  if (redirect) {
-    return NextResponse.redirect(`${url.origin}/board?week=${week}`);
-  }
+  if (redirect) return NextResponse.redirect(`${url.origin}/board?week=${week}`);
 
-  return NextResponse.json({
-    ok: true,
-    year, week, seasonType,
-    cfbd_count: games.length,
-    considered,
-    updated,
-    graded
-  });
+  return NextResponse.json({ ok:true, year, week, seasonType, cfbd_count: games.length, considered, updated, graded });
 }
 
 export async function GET(req: NextRequest)  { return handle(req); }
